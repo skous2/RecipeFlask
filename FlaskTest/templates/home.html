@@ -4,22 +4,20 @@
 
 {% block content %}
 <h2>Recipe Search Page</h2>
-<p>Search for recipes below using any combination of ingredients</p>
+<p>Search for recipes below using any combination of ingredients<br><br>
+ Note: you can adjust your blog settings in the profile page</p>
 
+
+<div>
 <form action="{{ url_for('recipesearch') }}" method = "POST">
     <p>Ingredient 1 <input type = "text" name = "Ingredient1" id = 'Ingredient1' /></p>
     <p>Ingredient 2 <input type = "text" name = "Ingredient2" id = 'Ingredient2' /></p>
     <p>Ingredient 3 <input type = "text" name = "Ingredient3" id = 'Ingredient3' /></p>
     <p>Ingredient 4 <input type = "text" name = "Ingredient4" id = 'Ingredient4' /></p>
     <p>________________________________________________</p>
-    <p>Word in the title <input type = "text" name = "Title" id = 'Title' /></p>
+    <p>Word in the title (e.g. muffin, salad, pasta) <input type = "text" name = "Title" id = 'Title' /></p>
     <p><input type = "submit" value = "Search Recipes" /></p>
 </form>
-
-
-
-{% for table in tables %}
-            {{ table|safe }}
-{% endfor %}
+</div>
 
 {% endblock %}

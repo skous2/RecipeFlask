@@ -21,4 +21,46 @@
         </tr>
     </table>
 </div>
+
+<div>
+<form action="{{ url_for('profile') }}" method = "POST">
+    <div>
+        <p> Your blog preferences: (uncheck to remove)</p>
+        <table>
+        <thead>
+        <tr>
+            <th></th>
+        </tr>
+        </thead>
+        <tbody>
+            {% for row in users_blogs %} 
+                <tr>
+                    <td><input type=checkbox name=people value="{{row}}" checked> {{row}} <br/></td>
+                </tr>
+            {% endfor %}        
+        </tbody>
+    </table>
+    </div>
+    <br></br>
+    <div>
+        <p> Blogs to add: (check to add) </p>
+        <table>
+        <thead>
+        <tr>
+            <th></th>
+        </tr>
+        </thead>
+        <tbody>
+            {% for row in other_blogs %} 
+                <tr>
+                    <td><input type=checkbox name=people value="{{row}}"> {{row}} <br/></td>
+                </tr>
+            {% endfor %}        
+        </tbody>
+    </table>
+    </div>
+
+    <p><input type = "submit" value = "Submit Changes" /></p>
+</form>
+</div>
 {% endblock %}

@@ -3,7 +3,42 @@
 {% block title %}My Pantry{% endblock %}
 
 {% block content %}
-<h2>My Pantry is coming soon</h2>
+<h2>My Pantry</h2>
 
+<div>
+<form action="{{ url_for('pantry') }}" method = "POST">
+    <p>Add ingredient to pantry:   <input type = "text" name = "NewIngredient" id = 'NewIngredient' /></p>
+    <p><input type = "submit" name = 'add' value = "Add" /></p>
+</form>
+</div>
+
+<div>
+	<form action="{{ url_for('pantry') }}" method = "POST">
+        <p> My Pantry</p>
+        <table>
+        <thead>
+        <tr>
+            <th>Food</th>
+            <th>Date Added</th>
+            <th>Expiration Date</th>
+            <th>Days Left to Use (Recommended)</th>
+        </tr>
+        </thead>
+        <tbody>
+            {% for row in output_data %} 
+                <tr>
+                    <td><input type=checkbox name=food value="{{row['foodName']}}"> {{row['foodName']}} <br/></td>
+                    <td>{{row['DateAdded']}} </td>
+                    <td>{{row['ExpirationDate']}} </td>
+                    <td>{{row['DaysLeft']}} </td>
+                </tr>
+            {% endfor %}        
+        </tbody>
+    </table>
+    <br></br>
+    <p><input type = "submit" name = 'search' value = "Search Selected Foods" /></p>
+    <p><input type = "submit" name = 'remove' value = "Remove Selected Foods" /></p>
+	</form>
+</div>
 
 {% endblock %}

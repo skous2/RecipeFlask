@@ -145,4 +145,12 @@ body.loggedin {
 	padding: 5px;
 	margin: 0 0 10px 0;
 }
+
+tr{  
+    position: relative; /* you may put it out, maybe it will work without it */
+}
+
+th{
+    width: 25%;
+}
 Feel free to customize 

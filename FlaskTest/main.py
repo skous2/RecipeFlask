@@ -116,40 +116,107 @@ def home():
     # Check if user is loggedin
     if 'loggedin' in session:
 
-        if request.method == 'POST':
-
-    	    ing1 = request.form['Ingredient1']
-
         # User is loggedin show them the home page
         return render_template('home.html', username=session['username'])
-
     # User is not loggedin redirect to login page
     return redirect(url_for('login'))
 
 # http://localhost:5000/pythinlogin/profile - this will be the profile page, only accessible for loggedin users
-@app.route('/FlaskTest/profile')
+@app.route('/FlaskTest/profile', methods=['GET', 'POST'])
 def profile():
     # Check if user is loggedin
     if 'loggedin' in session:
+
+        if request.method == 'POST':
+            print('Editing Database')
+            checkedblogs = request.form.getlist('people')
+            cursor = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
+            cursor.execute('DELETE FROM userblog WHERE userID = %s', (session['id'],))
+            mysql.connection.commit()
+            for checkedblog in checkedblogs:
+                cursor.execute('INSERT INTO userblog VALUES ((SELECT blogID FROM blog WHERE blogName = %s),%s)', (checkedblog, session['id'],))
+                mysql.connection.commit()
+
         # We need all the account info for the user so we can display it on the profile page
         cursor = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
         cursor.execute('SELECT * FROM accounts WHERE id = %s', (session['id'],))
         account = cursor.fetchone()
 
+        cursor.execute('SELECT blogName FROM blog JOIN userblog ON blog.blogID = userblog.blogID WHERE userID = %s ORDER BY blogName', (session['id'],))
+        usersblogs = cursor.fetchall()
+        userbloglist = [row['blogName'] for row in usersblogs]
+
+        cursor.execute('SELECT blogName FROM blog')
+        allblogs = cursor.fetchall()
+        allbloglist = [row['blogName'] for row in allblogs]
+
+        otherlist = sorted(set(allbloglist) - set(allbloglist).intersection(set(userbloglist)))
+        print(otherlist)
+
         # Show the profile page with account info
-        return render_template('profile.html', account=account)
+        return render_template('profile.html', account=account, users_blogs=userbloglist, other_blogs=otherlist)
     # User is not loggedin redirect to login page
     return redirect(url_for('login'))
 
-@app.route('/FlaskTest/pantry')
+@app.route('/FlaskTest/pantry', methods=['GET', 'POST'])
 def pantry():
     # Check if user is loggedin
     if 'loggedin' in session:
+        print(request.form)
+        if request.method == 'POST' and 'add' in request.form:
+            addedFood = request.form.get('NewIngredient')
+            cursor = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
+            cursor.execute('SELECT COUNT(*) AS num FROM food WHERE foodName = %s', (addedFood,))
+            foodexists = cursor.fetchone()
+            print(foodexists['num'])
+            if foodexists['num'] == 0:
+                cursor.execute('INSERT INTO food (idFood, foodName, foodExp) VALUES (NULL,%s,21)', (addedFood,))
+                mysql.connection.commit()
+            cursor.execute('SELECT COUNT(pantry.idFood) AS pantrynum FROM pantry JOIN food ON food.idFood = pantry.idFood WHERE foodName = %s', (addedFood,))
+            pantryexists = cursor.fetchone()
+            if pantryexists['pantrynum'] == 0:
+                cursor.execute('INSERT INTO pantry VALUES(%s,(SELECT idFood FROM food WHERE foodName = %s), curdate())', (session['id'], addedFood,))
+                mysql.connection.commit()
+
+        if request.method == 'POST' and 'remove' in request.form:
+            checkedfoods = request.form.getlist('food')
+            cursor = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
+            for checkedfood in checkedfoods:
+                cursor.execute('DELETE FROM pantry WHERE idUser = %s AND idFood = (SELECT idFood FROM food WHERE foodName = %s)', (session['id'],checkedfood))
+                mysql.connection.commit()
+                print(checkedfood)
+
+        if request.method == 'POST' and 'search' in request.form:
+            print(request.form.getlist('food'))
+            searchfoods = [food.lower() for food in request.form.getlist('food')]
+
+            cursor = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
+            cursor.execute('SELECT blogName FROM blog JOIN userblog ON blog.blogID = userblog.blogID WHERE userID = %s ORDER BY blogName', (session['id'],))
+            usersblogs = cursor.fetchall()
+            userbloglist = [row['blogName'] for row in usersblogs]
+
+            length = len(df.loc[df.Ingredients.apply(lambda x: find_ingredient(searchfoods, x)) & (master.Blog.isin(userbloglist)), ['Blog', 'Recipe', 'Link', 'Time']].sort_values('Time').reset_index(drop = True))
+
+
+            return render_template('recipesearch.html', length = length, searchlist = searchfoods, username=session['username'], tables=[df.loc[df.Ingredients.apply(lambda x: find_ingredient(searchfoods, x)) & (master.Blog.isin(userbloglist)), ['Blog', 'Recipe', 'Link', 'Time']].sort_values('Time').reset_index(drop = True).to_html(formatters={'Link':lambda x:f'<a href="{x}" target="_blank">{x}</a>'}, index = False, escape=False, classes='data', header="true")])
+
+
+        cursor = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
+        cursor.execute('SELECT foodName, DATE(dateAdded) AS DateAdded, DATE(DATE_ADD(dateAdded, INTERVAL foodExp DAY)) AS ExpirationDate, DATEDIFF(DATE_ADD(dateAdded, INTERVAL foodExp DAY), curdate()) AS DaysLeft FROM pantry JOIN food ON pantry.idFood = food.idFood WHERE idUser = %s ORDER BY DaysLeft ASC', (session['id'],))
+        pantryFoods = cursor.fetchall()
+        print(pantryFoods)
 
         # Show the pantry page 
-        return render_template('pantry.html')
+        return render_template('pantry.html', output_data=pantryFoods)
     # User is not loggedin redirect to login page
     return redirect(url_for('login'))
+
+    # SELECT 
+    # foodName,
+    # DATE(dateAdded),
+    # DATE(DATE_ADD(dateAdded, INTERVAL foodExp DAY)) AS ExpirationDate, 
+    # DATEDIFF(DATE_ADD(dateAdded, INTERVAL foodExp DAY), dateAdded) AS DaysLeft FROM pantry
+    # JOIN food ON pantry.idFood = food.idFood;
 
 @app.route('/FlaskTest/recipesearch', methods=['GET', 'POST'])
 def recipesearch():
@@ -159,17 +226,29 @@ def recipesearch():
             return f"The URL /recipesearch is accessed directly. Try going to '/home' to submit form"
         if request.method == 'POST':
             form_data = request.form
+            print(form_data.values())
             searchlist = list(form_data.values())
+            searchlist = [value.lower() for value in searchlist]
+            searchlist = searchlist[:-1]
+            print(searchlist)
             ing1 = form_data['Ingredient1']
             ing2 = form_data['Ingredient2']
             ing3 = form_data['Ingredient3']
             ing4 = form_data['Ingredient4']
-            titlesearch = form_data['Title']
-            length = len(df.loc[df.Ingredients.apply(lambda x: find_ingredient(searchlist, x)) & (master.Recipe.str.lower().str.find(titlesearch) > -1), ['Blog', 'Recipe', 'Link', 'Time']].sort_values('Time').reset_index(drop = True))
+            titlesearch = form_data['Title'].lower()
+            
+            cursor = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
+            cursor.execute('SELECT blogName FROM blog JOIN userblog ON blog.blogID = userblog.blogID WHERE userID = %s ORDER BY blogName', (session['id'],))
+            usersblogs = cursor.fetchall()
+            userbloglist = [row['blogName'] for row in usersblogs]
+
+            length = len(df.loc[df.Ingredients.apply(lambda x: find_ingredient(searchlist, x)) & (master.Recipe.str.lower().str.find(titlesearch) > -1) & (master.Blog.isin(userbloglist)), ['Blog', 'Recipe', 'Link', 'Time']].sort_values('Time').reset_index(drop = True))
+            
+
         #return render_template('data.html',form_data = form_data)
         
         # User is loggedin show them the home page
-        return render_template('recipesearch.html', length = length, form_data = form_data, username=session['username'], tables=[df.loc[df.Ingredients.apply(lambda x: find_ingredient(searchlist, x)) & (master.Recipe.str.lower().str.find(titlesearch) > -1), ['Blog', 'Recipe', 'Link', 'Time']].sort_values('Time').reset_index(drop = True).to_html(formatters={'Link':lambda x:f'<a href="{x}" target="_blank">{x}</a>'}, index = False, escape=False, classes='data', header="true")])
+        return render_template('recipesearch.html', length = length, searchlist = searchlist, username=session['username'], tables=[df.loc[df.Ingredients.apply(lambda x: find_ingredient(searchlist, x)) & (master.Recipe.str.lower().str.find(titlesearch) > -1) & (master.Blog.isin(userbloglist)), ['Blog', 'Recipe', 'Link', 'Time']].sort_values('Time').reset_index(drop = True).to_html(formatters={'Link':lambda x:f'<a href="{x}" target="_blank">{x}</a>'}, index = False, escape=False, classes='data', header="true")])
 
     # User is not loggedin redirect to login page
     return redirect(url_for('register'))
